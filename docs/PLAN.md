@@ -28,10 +28,14 @@ research-pipeline/
       new-study/SKILL.md
       research-pipeline/SKILL.md
   pipeline/
-    steps.yaml                   # step order, agent, required inputs, outputs
+    steps.toml                   # step order, agent, required inputs, outputs, tools
     run.py                       # headless runner: loops over steps, calls claude -p
+    studyguide.py                # parses the machine-readable parts of a study guide
     check_quotes.py              # deterministic: every quote in analysis exists in data
-    validate_csv.py              # deterministic: header matches study guide question IDs
+    validate_csv.py              # deterministic: csv matches study guide, tags well-formed
+  docs/
+    PLAN.md
+    CONVENTIONS.md               # every file format; all agents read it first
   guidance/
     study-designer.md            # living guidance docs, one per agent
     data-generator.md
@@ -114,13 +118,24 @@ Inputs: everything except the brief. Output: `50-grade.md` with a score and find
 
 The grader writes a **Suggested guidance updates** section naming which agent's guidance doc should change and how. A human applies those changes. Keeping the guidance edits manual stops the pipeline from tuning itself toward whatever the grader happens to reward.
 
+The grader never feeds back to the analyst. It sees the answer key, and any feedback from it would leak planted findings into the revision. Iteration happens through verifiers instead (next section).
+
+## Verification loops: iterate on facts, not on judgment
+
+Two bounded loops are planned once the straight-line pipeline has been graded on the first example study. Both share one shape: a producer, a checker that sees no ground truth and reports only objective defects, a cap on rounds, drafts kept in history, and the grader running once at the end on the final output and the first draft.
+
+- **Analyst and verifier.** After the analyst writes, a verifier checks only what can be verified without the answer key: every quote exists verbatim, every count matches a recount, every research question has a section, every claim carries a number. Its output is a defect list, never a rewrite. The analyst revises against the list, at most two rounds.
+- **Tagger and tag evaluator.** A second coder re-tags a sample (20 to 30 percent of free-text cells, or all of them under 20 participants) blind, using only the codebook. The runner computes agreement per tag. Tags below threshold get redefined, merged, or dropped in the codebook, then one full re-tag. The evaluator reports disagreements and proposes codebook changes; it never edits the tagged CSV. Run it on a different model or prompt framing than the tagger so shared bias inflates agreement less.
+
+The step manifest reserves `verify` and `max_rounds` fields for this. The runner treats a loop as internal to its step: canonical filenames stay the same, intermediate drafts go in a per-step iterations folder, and the verifier is reachable as a `--from` target. No loop for the study designer or the generator; their quality shows in downstream grades.
+
 ## Implementation phases
 
-1. **Scaffold** (half a day): layout above, `steps.yaml`, `run.py` with status logging and history moves, empty guidance docs, one example brief.
-2. **Design and generate**: study-designer and data-generator agents. Run one study to `20-data.csv` and read the data by hand before building anything downstream. Weak synthetic data makes every later grade meaningless.
-3. **Tag and analyze**: tagger and analyst agents plus `validate_csv.py` and `check_quotes.py`.
-4. **Grade**: grader agent and ground-truth comparison. Run the full pipeline on three example studies: one qualitative interview, one quantitative survey, one mixed.
-5. **Refine**: update guidance docs from grades, rerun from step 3 on the same data, and compare `history/` against the new output. Add Google Sheets sync and real-data ingest here.
+1. **Scaffold** (done): layout above, `steps.toml`, `run.py` with status logging and history moves, the two deterministic checks, first-draft agent definitions, empty guidance docs, one example brief.
+2. **Design and generate**: run the study-designer and data-generator on the example study, read the data by hand, and fix the agent prompts before building anything downstream. Weak synthetic data makes every later grade meaningless.
+3. **Tag and analyze**: run the tagger and analyst, fix prompts against the check output.
+4. **Grade**: run the grader with the ground truth. Then run the full pipeline on three example studies: one qualitative interview, one quantitative survey, one mixed.
+5. **Refine**: update guidance docs from grades, rerun from the tagger on the same data, and compare `history/` against the new output. Add the verification loops where grades show mechanical errors. Add Google Sheets sync and real-data ingest here.
 
 ## Suggestions for improvement
 
@@ -132,10 +147,10 @@ The grader writes a **Suggested guidance updates** section naming which agent's 
 - **Test the grader against bad analyses on purpose.** Feed it an analysis with a fabricated quote and a wrong count, and confirm it catches both before trusting its scores.
 - **Minimum of 5 participants** for any study guide, and a default of 20 to 30 for synthetic runs, so planted patterns have enough rows to show up as counts.
 
-## Open decisions
+## Decisions taken
 
-These do not block the scaffold. Defaults are stated; change them if they are wrong.
-
-- Google Sheets as mirror (default) or as the canonical artifact.
-- Real-data ingest in the first build (default: phase 5).
-- Headless runner first (default) or the in-session skill first. Both use the same agent definitions.
+- Google Sheets is a mirror; CSV in the study folder is canonical.
+- Real-data ingest comes in phase 5.
+- Headless runner first; the in-session skill uses the same agent definitions.
+- Tags use `group:value`. Agents are named study-designer and data-generator.
+- Verification loops wait until the straight-line pipeline has been graded once.

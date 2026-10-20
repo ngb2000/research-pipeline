@@ -1,0 +1,48 @@
+# Pipeline step manifest. Order matters. The runner walks these in sequence.
+#
+# name     step name used by --from / --to
+# agent    agent definition in .claude/agents/<agent>.md
+# inputs   files that must exist in the study folder before the step runs
+# outputs  files the step must produce; existing ones move to history/ first
+# tools    tools the headless run may use without prompting
+# model    optional override passed to claude -p
+#
+# Reserved for later phases:
+# verify      agent that checks outputs without reading ground truth
+# max_rounds  bound on producer/verifier iterations
+
+[[steps]]
+name = "study-guide"
+agent = "study-designer"
+inputs = ["00-brief.md"]
+outputs = ["10-study-guide.md"]
+tools = ["Read", "Write", "Edit", "Glob", "Grep"]
+
+[[steps]]
+name = "data"
+agent = "data-generator"
+inputs = ["10-study-guide.md"]
+outputs = ["20-data.csv", "20-ground-truth.md"]
+tools = ["Read", "Write", "Edit", "Glob", "Grep", "Bash(python3 *)"]
+
+[[steps]]
+name = "tags"
+agent = "tagger"
+inputs = ["10-study-guide.md", "20-data.csv"]
+outputs = ["30-data-tagged.csv", "30-codebook.md"]
+tools = ["Read", "Write", "Edit", "Glob", "Grep", "Bash(python3 *)"]
+
+[[steps]]
+name = "analysis"
+agent = "analyst"
+inputs = ["10-study-guide.md", "30-data-tagged.csv", "30-codebook.md"]
+outputs = ["40-analysis.md"]
+tools = ["Read", "Write", "Edit", "Glob", "Grep", "Bash(python3 *)"]
+
+[[steps]]
+name = "grade"
+agent = "grader"
+inputs = ["10-study-guide.md", "30-data-tagged.csv", "30-codebook.md", "40-analysis.md"]
+optional_inputs = ["20-ground-truth.md"]
+outputs = ["50-grade.md"]
+tools = ["Read", "Write", "Edit", "Glob", "Grep", "Bash(python3 *)"]
