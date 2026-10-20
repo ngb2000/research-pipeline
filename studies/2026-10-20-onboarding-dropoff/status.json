@@ -1,0 +1,22 @@
+{
+  "runs": [
+    {
+      "step": "study-guide",
+      "agent": "study-designer",
+      "model": "claude-opus-5-5",
+      "started": "2026-10-20T18:27:10+00:00",
+      "finished": "2026-10-20T18:28:02+00:00",
+      "exit_code": 0,
+      "status": "ok",
+      "outputs": [
+        "10-study-guide.md"
+      ],
+      "archived_previous": null,
+      "session_id": "9acda7a8-69e6-5414-af4f-b922f33800f4",
+      "cost_usd": 0.21584319999999999,
+      "duration_ms": 48887,
+      "num_turns": 5,
+      "summary": "I wrote `studies/2026-10-20-onboarding-dropoff/10-study-guide.md`, a 24-participant structured-interview study split by channel (app, web, branch) and outcome (completed, abandoned)."
+    }
+  ]
+}
